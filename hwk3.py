@@ -17,7 +17,7 @@
 
 # # Step 1: Download & Prepare the Data
 
-# In[1]:
+# In[4]:
 
 
 ### DO NOT EDIT ###
@@ -35,7 +35,7 @@ rnn_encoder, rnn_encoder, transformer_encoder, transformer_decoder = None, None,
 # ## Helper Functions
 # This cell contains helper functions for the dataloader.
 
-# In[2]:
+# In[5]:
 
 
 ### DO NOT EDIT ###
@@ -101,7 +101,7 @@ def train_test_split(src_tensor, trg_tensor):
 # 
 # Here we will download the translation data. We will learn a model to translate Spanish to English.
 
-# In[3]:
+# In[6]:
 
 
 ### DO NOT EDIT ###
@@ -113,7 +113,7 @@ def train_test_split(src_tensor, trg_tensor):
 
 # Now we visualize the data.
 
-# In[4]:
+# In[7]:
 
 
 ### DO NOT EDIT ###
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
 # Next we preprocess the data.
 
-# In[5]:
+# In[8]:
 
 
 ### DO NOT EDIT ###
@@ -148,7 +148,7 @@ if __name__ == '__main__':
 # 
 # Then we prepare the dataloader and make sure it returns the source sentence and target sentence.
 
-# In[6]:
+# In[9]:
 
 
 ### DO NOT EDIT ###
@@ -181,7 +181,7 @@ class MyData(Dataset):
         return len(self.data)
 
 
-# In[7]:
+# In[10]:
 
 
 ### DO NOT EDIT ###
@@ -191,7 +191,7 @@ import random
 from torch.utils.data import DataLoader
 
 
-# In[8]:
+# In[11]:
 
 
 ### DO NOT EDIT ###
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
 # ## Build Vocabulary
 
-# In[9]:
+# In[12]:
 
 
 ### DO NOT EDIT ###
@@ -227,7 +227,7 @@ if __name__ == '__main__':
 # 
 # We instantiate our training and validation datasets.
 
-# In[10]:
+# In[13]:
 
 
 ### DO NOT EDIT ###
@@ -249,7 +249,7 @@ if __name__ == '__main__':
     test_dataset = DataLoader(test_dataset, batch_size=BATCH_SIZE, drop_last=True, shuffle=False)
 
 
-# In[11]:
+# In[14]:
 
 
 ### DO NOT EDIT ###
@@ -274,7 +274,7 @@ if __name__ == '__main__':
 # 4. Another attention explanation: https://towardsdatascience.com/attention-and-its-different-forms-7fc3674d14dc
 # 
 
-# In[12]:
+# In[15]:
 
 
 ### DO NOT EDIT ###
@@ -293,7 +293,7 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction, corpus_b
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[13]:
+# In[16]:
 
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -380,7 +380,7 @@ class RnnEncoder(nn.Module):
         # Pass the result through your recurrent network
         #   See PyTorch documentation for resulting shape for nn.GRU
         output, hidden_state = self.GRU(final_embedding_gpu, initial_state_h0)
-        # print(f"  output: {output.shape}, output dtype: {output.dtype}")
+        # print(f"  encoder output shape: {output.shape}, encoder output dtype: {output.dtype}")
         # print(f" hidden_state_n: {hidden_state.shape}, hidden_state_n dtype: {hidden_state.dtype}")
         
         return output, hidden_state
@@ -390,7 +390,7 @@ class RnnEncoder(nn.Module):
 # 
 # The code below runs a sanity check for your `RnnEncoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[14]:
+# In[17]:
 
 
 ### DO NOT EDIT ###
@@ -449,7 +449,7 @@ def sanityCheckModel(all_test_params, NN, expected_outputs, init_or_forward, dat
         del stu_nn
 
 
-# In[15]:
+# In[18]:
 
 
 ### DO NOT EDIT ###
@@ -525,7 +525,7 @@ if __name__ == '__main__':
 # 
 # <font color='green'><b>Hint:</b> You should be able to implement all of this <b>without any for loops</b> using the Pytorch library. Also, remember that these operations should operate in parallel for each item in your batch.</font>
 
-# In[16]:
+# In[19]:
 
 
 class RnnDecoder(nn.Module):
@@ -545,9 +545,10 @@ class RnnDecoder(nn.Module):
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.hidden_units = hidden_units
+        self.rnn_decoder_softmax = torch.nn.Softmax(dim=1)
 
         # Initialize embedding layer
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim).to(self.device)
         self.embed_size = embedding_dim
         self.num_layers = 1
 
@@ -593,15 +594,38 @@ class RnnDecoder(nn.Module):
         '''      
         # context_vector, attention_weights = None, None
 
+        dec_hs = dec_hs.to(self.device)
+        enc_output = enc_output.to(self.device)
 
         # why is it not even printing anything?
         # print('Content of dec_hs:', dec_hs)
-        print('Shape of dec_hs:', dec_hs.shape, '\n')
-        print('Type of dec_hs:', dec_hs.dtype, '\n')
+        # print('Shape of dec_hs  [1, batch_size, hidden_units]:', dec_hs.shape, '\n')
+        # print('Type of dec_hs:', dec_hs.dtype, '\n')
 
         # print('Content of enc_output:', enc_output)
-        print('Shape of enc_output:', enc_output.shape, '\n')
-        print('Type of enc_output:', enc_output.dtype, '\n')
+        # print('Shape of enc_output [max_len_src, batch_size, hidden_units]:', enc_output.shape, '\n')
+        # print('Type of enc_output:', enc_output.dtype, '\n')
+
+        # Shape of dec_hs: torch.Size([1, 1, 50]) == [1, batch_size, hidden_units]
+        #
+        # Type of dec_hs: torch.float32
+        #
+        # Shape of enc_output: torch.Size([16, 1, 50])  == [max_len_src, batch_size, hidden_units]
+        # batch size = 1, max len src = 16, hidden units = 50
+        # Type of enc_output: torch.float32
+
+        # Shape of decoder_hidden_state_ht: torch.Size([1, 1, 1, 50])
+        #
+        # Shape of encoder_hidden_state_hs: torch.Size([16, 1, 50])
+
+        # Shape of tanh_of_weighted_sum_hidden_states: torch.Size([16, 1, 50])
+        #
+        # Shape of score Output size: [batch_size, max_len_src, 1]: torch.Size([16, 1, 1])
+        #
+        # Shape of permuted score Output size: [batch_size, max_len_src, 1]: torch.Size([1, 16, 1])
+        # #
+
+
 
 
 
@@ -614,27 +638,94 @@ class RnnDecoder(nn.Module):
 
         # dec_hs: Decoder hidden state;  [1, batch_size, hidden_units]
         # CONVERT to dec_hs: Decoder hidden state; [1, 1, batch_size, hidden_units] ??
-        decoder_hidden_state_ht = self.w1_dense_layer(dec_hs.unsqueeze(1))
-        # decoder_hidden_state_ht = self.w1_dense_layer(dec_hs)
-        print('Content of decoder_hidden_state_ht:', decoder_hidden_state_ht)
-        print('Shape of decoder_hidden_state_ht:', decoder_hidden_state_ht.shape, '\n')
-        print('Type of decoder_hidden_state_ht:', decoder_hidden_state_ht.dtype, '\n')
+        # decoder_hidden_state_ht = self.w1_dense_layer(dec_hs.unsqueeze(1)).to(self.device)
+        decoder_hidden_state_ht = self.w1_dense_layer(dec_hs)
+        # print('Content of decoder_hidden_state_ht:', decoder_hidden_state_ht)
+        # print('Shape of decoder_hidden_state_ht  [1, batch_size, hidden_units]:', decoder_hidden_state_ht.shape, '\n')
+        # print('Type of decoder_hidden_state_ht:', decoder_hidden_state_ht.dtype, '\n')
 
 
         #  enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
         # CONVERT to enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
-        encoder_hidden_state_hs = self.w2_dense_layer(enc_output)
-        print('Content of encoder_hidden_state_hs:', encoder_hidden_state_hs)
-        print('Shape of encoder_hidden_state_hs:', encoder_hidden_state_hs.shape, '\n')
-        print('Type of encoder_hidden_state_hs:', encoder_hidden_state_hs.dtype, '\n')
+        encoder_hidden_state_hs = self.w2_dense_layer(enc_output).to(self.device)
+        # print('Content of encoder_hidden_state_hs:', encoder_hidden_state_hs)
+        # print('Shape of encoder_hidden_state_hs [max_len_src, batch_size, hidden_units]:', encoder_hidden_state_hs.shape, '\n')
+        # print('Type of encoder_hidden_state_hs:', encoder_hidden_state_hs.dtype, '\n')
 
-        tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs)
-        print('Content of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states)
-        print('Shape of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.shape, '\n')
-        print('Type of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.dtype, '\n')
+        tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs).to(self.device)
+        # print('Content of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states)
+        # print('Shape of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.shape, '\n')
+        # print('Type of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.dtype, '\n')
 
-        score = self.v_a_dense_layer(tanh_of_weighted_sum_hidden_states).squeeze(-1)  # transpose????
-        score = torch.permute(score, (2,1,0))
+        score = self.v_a_dense_layer(tanh_of_weighted_sum_hidden_states)  # transpose????
+        # print('Content of score:', score)
+        # print('Shape of score Output size: [batch_size, max_len_src, 1]:', score.shape, '\n')
+        # print('Type of score:', score.dtype, '\n')
+
+
+
+
+        score = torch.permute(score, (1,0,2))
+        # print('Content of score:', score)
+        # print('Shape of score Output size: [batch_size, max_len_src, 1]:', score.shape, '\n')
+        # Shape of permuted score Output size: [batch_size, max_len_src, 1]: torch.Size([1, 16, 1])
+        # print('Type of score:', score.dtype, '\n')
+
+        # (2) Compute attention_weights by taking a softmax over your scores to normalize the distribution (Make sure that after softmax the normalized scores add up to 1)
+        #             - Output size: [batch_size, max_len_src, 1]
+        #softmax
+        attention_weights_alpha_ts = self.rnn_decoder_softmax(score)
+        # print('Content of attention_weights_alpha_ts:', attention_weights_alpha_ts)
+        # print('Shape of attention_weights_alpha_ts Output size: [batch_size, max_len_src, 1]:', attention_weights_alpha_ts.shape, '\n')
+        # print('Type of score:', score.dtype, '\n')
+        # Shape of attention_weights_alpha_ts Output size: [batch_size, max_len_src, 1]: torch.Size([1, 16, 1])
+
+        # check sum
+        sum_check = torch.sum(attention_weights_alpha_ts)
+        # print('Content of sum_check:', sum_check)
+
+        # (3) Compute context_vector from attention_weights & enc_output
+        #             - Hint: You may find it helpful to use torch.sum & element-wise multiplication (* operator)
+
+        # Shape of attention_weights_alpha_ts Output size: [batch_size, max_len_src, 1]: torch.Size([1, 16, 1])
+        # Shape of enc_output: torch.Size([16, 1, 50])  == [max_len_src, batch_size, hidden_units]
+        # context_vector = torch.bmm(torch.permute(attention_weights_alpha_ts, (0,1,2)), torch.permute(enc_output, (1,0,2)))
+
+        # attention_weights_alpha_ts_squeezed = attention_weights_alpha_ts.squeeze(-1)  #1, 16 = batch, max len
+        attention_weights_alpha_ts_squeezed = attention_weights_alpha_ts  #1, 16, 1 = batch, max len, 1
+        # print('Shape of attention_weights_alpha_ts_squeezed #1, 16 = batch, max len:', attention_weights_alpha_ts_squeezed.shape, '\n')
+
+        enc_output_permuted = torch.permute(enc_output, (1,0,2)) #1, 16, 50 = batch, max_len, hidden units
+        # print('Shape of enc_output_permuted #1, 16, 50 = batch, max_len, hidden units:', enc_output_permuted.shape, '\n')
+
+        # enc_output_permuted_sum = torch.sum(enc_output_permuted, axis=2)
+        # print('Shape of enc_output_permuted_sum Output size: [batch_size, max_len_src]:', enc_output_permuted_sum.shape, '\n')
+
+        # context_vector = attention_weights_alpha_ts_squeezed * enc_output_permuted_sum
+        # print('Shape of context_vector [batch_size, hidden_units] == [1, 50]:', context_vector.shape, '\n')
+
+
+        context_vector_element_wise_multiplication = attention_weights_alpha_ts_squeezed * enc_output_permuted
+        # print('Shape of context_vector [batch_size, hidden_units] == [1, 50]:', context_vector_element_wise_multiplication.shape, '\n')
+
+        context_vector = torch.sum(context_vector_element_wise_multiplication, axis=1)
+        # print('Shape of context_vector [batch_size, hidden_units] == [1, 50]:', context_vector.shape, '\n')
+
+
+        # context_vector = [batch_size, hidden_units] == [1, 50]
+
+
+
+
+
+
+
+
+
+
+
+        attention_weights = attention_weights_alpha_ts.type(torch.float32)
+
 
         return context_vector, attention_weights
 
@@ -665,6 +756,39 @@ class RnnDecoder(nn.Module):
         fc_out, attention_weights = None, None
 
         ### TODO ###
+        context_vector, attention_weights = self.compute_attention(dec_hs, enc_output)
+        # print('Shape of context_vector [batch_size, hidden_units] == [1, 50]:', context_vector.shape, '\n')
+
+
+        x = x.to(self.device)
+        final_embedding =  self.embedding(x)
+        final_embedding_gpu = final_embedding.to(self.device)
+        embedding_vector = final_embedding_gpu
+        # print(f"embedding dimn:{embedding_dim}")
+        # print('Shape of embedding_vector  [batch_size, 1, embedding_dim] == [1, 1, 50]:', embedding_vector.shape, '\n')
+
+        context_vector_unsqueezed = context_vector.unsqueeze(1)
+        # print('Shape of context_vector_unsqueezed [batch_size, 1, hidden_units] == [1, 1, 50]::', context_vector_unsqueezed.shape, '\n')
+
+        concatenated_tensor = (torch.cat([context_vector_unsqueezed, embedding_vector], dim=2)).to(self.device)
+        # print(f"  concatenated_tensor shape: : {concatenated_tensor.shape}")
+
+        rnn_output, hn  = self.GRU(concatenated_tensor)
+
+        # [batch_size, 1, hidden_units] & [1, batch_size, hidden_units]
+        # print(f"  rnn_output: {rnn_output.shape}")
+        # print(f" hn: {hn.shape}")
+
+        linear_output = self.dense_layer(rnn_output).to(self.device)
+        # print(f"  linear_output: {linear_output.shape}")
+
+        linear_output_squeezed = (linear_output.squeeze(1)).to(self.device)
+        # print(f"  linear_output_squeezed: {linear_output_squeezed.shape}")
+
+        fc_out = linear_output_squeezed
+        dec_hs = hn
+        attention_weights = attention_weights
+
 
         return fc_out, dec_hs, attention_weights
 
@@ -673,7 +797,7 @@ class RnnDecoder(nn.Module):
 # 
 # The code below runs a sanity check for your `RnnDecoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[17]:
+# In[20]:
 
 
 ### DO NOT EDIT ###
@@ -694,6 +818,21 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         input_rep += '}'
         dec = RnnDecoder(trg_vocab=inp['trg_vocab'],embedding_dim=inp['embedding_dim'],hidden_units=inp['hidden_units'])
         dec_hs = torch.rand(1, inp["batch_size"], inp['hidden_units'])
+
+        ###############################################################
+        # print('Shape of dec_hs:', dec_hs.shape, '\n')
+        # print('Type of dec_hs:', dec_hs.dtype, '\n')
+
+        enc_output=inp['encoder_outputs']
+        # print('Content of enc_output:', enc_output)
+        # print('Shape of enc_output:', enc_output.shape, '\n')
+        # print('Type of enc_output:', enc_output.dtype, '\n')
+
+        test_decoder = dec.compute_attention(dec_hs, enc_output)
+        # print(f"test_decoder is: {test_decoder}")
+        #################################################################
+
+
         x = torch.randint(low=0,high=len(inp["trg_vocab"]),size=(inp["batch_size"], 1))
         with torch.no_grad(): 
             dec_out = dec(x=x, dec_hs=dec_hs,enc_output=inp['encoder_outputs'])
@@ -751,7 +890,7 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         print()
 
 
-# In[18]:
+# In[21]:
 
 
 ### DO NOT EDIT ###
@@ -804,7 +943,7 @@ if __name__ == '__main__':
 # 
 # We will train the encoder and decoder using cross-entropy loss.
 
-# In[ ]:
+# In[22]:
 
 
 ### DO NOT EDIT ###
@@ -858,7 +997,7 @@ def train_rnn_model(encoder, decoder, dataset, optimizer, trg_vocab, device, n_e
     print('Model trained!')
 
 
-# In[ ]:
+# In[23]:
 
 
 ### DO NOT EDIT ###
@@ -880,7 +1019,7 @@ if __name__ == '__main__':
     print('Encoder and Decoder models initialized!')
 
 
-# In[ ]:
+# In[24]:
 
 
 ### DO NOT EDIT ###
@@ -895,7 +1034,7 @@ if __name__ == '__main__':
 # 
 # Here, you will write a function that takes your trained model and a source sentence (Spanish), and returns its translation (English sentence). Instead of using teacher forcing, the input to the decoder at time step $t_i$ will be the prediction of the decoder at time $t_{i-1}$.
 
-# In[ ]:
+# In[25]:
 
 
 def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
@@ -932,13 +1071,14 @@ def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
     curr_output[:, 0] = dec_input.squeeze(1)
     
     ### TODO: Implement decoding algorithm ###
+
     
     return curr_output, curr_predictions
 
 
 # You can run the cell below to qualitatively compare some of the sentences your model generates with the some of the correct translations.
 
-# In[ ]:
+# In[26]:
 
 
 ### DO NOT EDIT ###
@@ -970,7 +1110,7 @@ if __name__ == '__main__':
 # 1.   https://en.wikipedia.org/wiki/BLEU
 # 2.   https://www.aclweb.org/anthology/P02-1040.pdf
 
-# In[ ]:
+# In[27]:
 
 
 ### DO NOT EDIT ###
@@ -1053,7 +1193,7 @@ def evaluate_rnn_model(encoder, decoder, test_dataset, target_tensor_val, device
     return compute_bleu_scores(target_tensor_val, target_output, final_output, trg_vocab)
 
 
-# In[ ]:
+# In[28]:
 
 
 ### DO NOT EDIT ###
@@ -1071,7 +1211,7 @@ if __name__ == '__main__':
 # <li> Another tutorial: http://peterbloem.nl/blog/transformers
 # </ul>
 
-# In[ ]:
+# In[29]:
 
 
 ### DO NOT EDIT ###
@@ -1091,7 +1231,7 @@ import math
 # 
 # <font color='green'><b>Hint:</b> We encourage you to try to implement this function with no for loops, which is the general practice (as it is faster). However, since we are using relatively small datasets, you are welcome to do this with for loops if you prefer.
 
-# In[ ]:
+# In[30]:
 
 
 def create_positional_embedding(max_len, embed_dim):
@@ -1115,7 +1255,7 @@ def create_positional_embedding(max_len, embed_dim):
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[ ]:
+# In[31]:
 
 
 class TransformerEncoder(nn.Module):
@@ -1185,7 +1325,7 @@ class TransformerEncoder(nn.Module):
 # 
 # The code below runs a sanity check for your `TransformerEncoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[ ]:
+# In[32]:
 
 
 ### DO NOT EDIT ###

@@ -234,7 +234,9 @@ if __name__ == '__main__':
 
 if __name__ == '__main__':
     src_vocab = Vocab_Lang(src_vocab_list)
+    print(f"src_vocab is: {src_vocab}")
     trg_vocab = Vocab_Lang(trg_vocab_list)
+    print(f"trg_vocab is: {trg_vocab}")
 
     src_tensor, trg_tensor, max_length_src, max_length_trg = preprocess_data_to_tensor(data, src_vocab, trg_vocab)
     src_tensor_train, src_tensor_val, trg_tensor_train, trg_tensor_val = train_test_split(src_tensor, trg_tensor)
@@ -291,7 +293,7 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction, corpus_b
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[ ]:
+# In[13]:
 
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -308,12 +310,20 @@ class RnnEncoder(nn.Module):
         self.src_vocab = src_vocab # Do not change
         vocab_size = len(src_vocab)
 
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.hidden_units = hidden_units
+
         ### TODO ###
 
         # Initialize embedding layer
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.embed_size = embedding_dim
+        self.num_layers = 1
+
 
         # Initialize a single directional GRU with 1 layer and batch_first=False
-        
+        self.GRU = nn.GRU(input_size=embedding_dim, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=False).to(self.device)
+
 
     def forward(self, x):
         """
@@ -330,7 +340,50 @@ class RnnEncoder(nn.Module):
         """
         output, hidden_state = None, None
 
+        # TODO: We only have indexes of source text? and the size is [max_len, batch size]
+
+        # print('Content of x:', x)
+        # print('Shape of x:', x.shape, '\n')
+        # print('Type of x:', x.dtype, '\n')
+
         ### TODO ###
+        # batch_first – If True, then the input and output tensors are provided as (batch, seq, feature)
+        #  Default: False, then the input and output tensors are provided as (seq, batch, feature).
+
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # Pass texts through your embedding layer to convert to word embeddings
+
+        x_int64 = x.type(torch.int64)
+        print('Content of embedding:', x_int64)
+        print('Shape of embedding:', x_int64.shape, '\n')
+        print('Type of embedding:', x_int64.dtype, '\n')
+
+        # Resulting: shape: [batch_size, max_len, embed_size]
+        final_embedding = (self.embedding(x_int64))
+        final_embedding_gpu = final_embedding.to(device)
+        # print(f"  final_embedding_gpu: {final_embedding_gpu.shape}, final_embedding_gpu dtype: {final_embedding_gpu.dtype}, final_embedding_gpu device: {final_embedding_gpu.get_device()}")
+
+        # print('Content of final_embedding_gpu:', final_embedding_gpu)
+
+        max_len, batch_size = x_int64.shape
+        # print(f"batch_size: {batch_size}, max_len: {max_len}")
+        # print(f"(batch_size, max_len, self.hidden_size): ({batch_size}, {max_len}, {self.hidden_units})")
+
+        initial_state_h0 = torch.nn.parameter.Parameter(torch.randn(1*self.num_layers, batch_size, self.hidden_units)).to(device)
+        # print(f"  initial_state_h0: {initial_state_h0.shape}, initial_state_h0 dtype: {initial_state_h0.dtype}, initial_state_h0 device: {initial_state_h0.get_device()}")
+
+        # gru_input = torch.randn(batch_size, max_len, self.hidden_size).to(device)
+        # print(f"  gru_input: {gru_input.shape}, gru_input dtype: {gru_input.dtype}, gru_input device: {gru_input.get_device()}")
+        # # h_out = 32
+
+
+
+        # Pass the result through your recurrent network
+        #   See PyTorch documentation for resulting shape for nn.GRU
+        output, hidden_state = self.GRU(final_embedding_gpu, initial_state_h0)
+        print(f"  output: {output.shape}, output dtype: {output.dtype}")
+        print(f" hidden_state_n: {hidden_state.shape}, hidden_state_n dtype: {hidden_state.dtype}")
         
         return output, hidden_state
 
@@ -339,7 +392,7 @@ class RnnEncoder(nn.Module):
 # 
 # The code below runs a sanity check for your `RnnEncoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[ ]:
+# In[14]:
 
 
 ### DO NOT EDIT ###
@@ -398,7 +451,7 @@ def sanityCheckModel(all_test_params, NN, expected_outputs, init_or_forward, dat
         del stu_nn
 
 
-# In[ ]:
+# In[15]:
 
 
 ### DO NOT EDIT ###
@@ -418,6 +471,9 @@ if __name__ == '__main__':
             inp['embedding_dim'] = embedding_dim[i]
             inp['hidden_units'] = hu
             inputs.append(inp)
+
+    print(f"inputs are: {inputs}")
+
     # Test init
     expected_outputs = [33770, 56870, 148070, 72725, 96275, 188375, 111680, 135680, 228680]
 
@@ -471,7 +527,7 @@ if __name__ == '__main__':
 # 
 # <font color='green'><b>Hint:</b> You should be able to implement all of this <b>without any for loops</b> using the Pytorch library. Also, remember that these operations should operate in parallel for each item in your batch.</font>
 
-# In[ ]:
+# In[16]:
 
 
 class RnnDecoder(nn.Module):
@@ -561,7 +617,7 @@ class RnnDecoder(nn.Module):
 # 
 # The code below runs a sanity check for your `RnnDecoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[ ]:
+# In[17]:
 
 
 ### DO NOT EDIT ###
@@ -639,7 +695,7 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         print()
 
 
-# In[ ]:
+# In[18]:
 
 
 ### DO NOT EDIT ###
@@ -692,7 +748,7 @@ if __name__ == '__main__':
 # 
 # We will train the encoder and decoder using cross-entropy loss.
 
-# In[ ]:
+# In[19]:
 
 
 ### DO NOT EDIT ###
@@ -746,7 +802,7 @@ def train_rnn_model(encoder, decoder, dataset, optimizer, trg_vocab, device, n_e
     print('Model trained!')
 
 
-# In[ ]:
+# In[20]:
 
 
 ### DO NOT EDIT ###
@@ -768,7 +824,7 @@ if __name__ == '__main__':
     print('Encoder and Decoder models initialized!')
 
 
-# In[ ]:
+# In[21]:
 
 
 ### DO NOT EDIT ###

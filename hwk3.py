@@ -106,9 +106,9 @@ def train_test_split(src_tensor, trg_tensor):
 
 ### DO NOT EDIT ###
 
-if __name__ == '__main__':
-    os.system("wget http://www.manythings.org/anki/spa-eng.zip")
-    os.system("unzip -o spa-eng.zip")
+# if __name__ == '__main__':
+#     os.system("wget http://www.manythings.org/anki/spa-eng.zip")
+#     os.system("unzip -o spa-eng.zip")
 
 
 # Now we visualize the data.
@@ -355,9 +355,9 @@ class RnnEncoder(nn.Module):
         # Pass texts through your embedding layer to convert to word embeddings
 
         x_int64 = x.type(torch.int64)
-        print('Content of embedding:', x_int64)
-        print('Shape of embedding:', x_int64.shape, '\n')
-        print('Type of embedding:', x_int64.dtype, '\n')
+        # print('Content of embedding:', x_int64)
+        # print('Shape of embedding:', x_int64.shape, '\n')
+        # print('Type of embedding:', x_int64.dtype, '\n')
 
         # Resulting: shape: [batch_size, max_len, embed_size]
         final_embedding = (self.embedding(x_int64))
@@ -377,13 +377,11 @@ class RnnEncoder(nn.Module):
         # print(f"  gru_input: {gru_input.shape}, gru_input dtype: {gru_input.dtype}, gru_input device: {gru_input.get_device()}")
         # # h_out = 32
 
-
-
         # Pass the result through your recurrent network
         #   See PyTorch documentation for resulting shape for nn.GRU
         output, hidden_state = self.GRU(final_embedding_gpu, initial_state_h0)
-        print(f"  output: {output.shape}, output dtype: {output.dtype}")
-        print(f" hidden_state_n: {hidden_state.shape}, hidden_state_n dtype: {hidden_state.dtype}")
+        # print(f"  output: {output.shape}, output dtype: {output.dtype}")
+        # print(f" hidden_state_n: {hidden_state.shape}, hidden_state_n dtype: {hidden_state.dtype}")
         
         return output, hidden_state
 
@@ -472,7 +470,7 @@ if __name__ == '__main__':
             inp['hidden_units'] = hu
             inputs.append(inp)
 
-    print(f"inputs are: {inputs}")
+    # print(f"inputs are: {inputs}")
 
     # Test init
     expected_outputs = [33770, 56870, 148070, 72725, 96275, 188375, 111680, 135680, 228680]
@@ -539,19 +537,36 @@ class RnnDecoder(nn.Module):
             embedding_dim: The dimension of the embedding
             hidden_units: The number of features in the GRU hidden state
         """
+
         self.trg_vocab = trg_vocab # Do not change
         vocab_size = len(trg_vocab)
 
         ### TODO ###
 
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.hidden_units = hidden_units
+
         # Initialize embedding layer
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.embed_size = embedding_dim
+        self.num_layers = 1
+
 
         # Initialize layers to compute attention score
+        self.w1_dense_layer = nn.Linear(hidden_units, hidden_units).to(self.device)
+        self.w2_dense_layer = nn.Linear(hidden_units, hidden_units).to(self.device)
+        self.v_a_dense_layer = nn.Linear(hidden_units, 1).to(self.device)
 
         # Initialize a single directional GRU with 1 layer and batch_first=True
+        self.GRU = nn.GRU(input_size=embedding_dim+hidden_units, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=True).to(self.device)
+
+
         # NOTE: Input to your RNN will be the concatenation of your embedding vector and the context vector
 
+
         # Initialize fully connected layer
+        self.dense_layer = nn.Linear(hidden_units, vocab_size).to(self.device)
+
     
 
     def compute_attention(self, dec_hs, enc_output):
@@ -576,9 +591,50 @@ class RnnDecoder(nn.Module):
                     - Hint: You may find it helpful to use torch.sum & element-wise multiplication (* operator)
             (4) Return context_vector & attention_weights
         '''      
-        context_vector, attention_weights = None, None
-        
+        # context_vector, attention_weights = None, None
+
+
+        # why is it not even printing anything?
+        # print('Content of dec_hs:', dec_hs)
+        print('Shape of dec_hs:', dec_hs.shape, '\n')
+        print('Type of dec_hs:', dec_hs.dtype, '\n')
+
+        # print('Content of enc_output:', enc_output)
+        print('Shape of enc_output:', enc_output.shape, '\n')
+        print('Type of enc_output:', enc_output.dtype, '\n')
+
+
+
+
+
         ### TODO ###
+        # score = self.v(torch.tanh(self.w1(dec_hs.unsqueeze(1)) + self.w2(enc_output))).squeeze(-1)
+
+        # score = torch.permute(score, (2,1,0))
+
+        # dec_hs: Decoder hidden state;  [1, batch_size, hidden_units]
+        # CONVERT to dec_hs: Decoder hidden state; [1, 1, batch_size, hidden_units] ??
+        decoder_hidden_state_ht = self.w1_dense_layer(dec_hs.unsqueeze(1))
+        # decoder_hidden_state_ht = self.w1_dense_layer(dec_hs)
+        print('Content of decoder_hidden_state_ht:', decoder_hidden_state_ht)
+        print('Shape of decoder_hidden_state_ht:', decoder_hidden_state_ht.shape, '\n')
+        print('Type of decoder_hidden_state_ht:', decoder_hidden_state_ht.dtype, '\n')
+
+
+        #  enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
+        # CONVERT to enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
+        encoder_hidden_state_hs = self.w2_dense_layer(enc_output)
+        print('Content of encoder_hidden_state_hs:', encoder_hidden_state_hs)
+        print('Shape of encoder_hidden_state_hs:', encoder_hidden_state_hs.shape, '\n')
+        print('Type of encoder_hidden_state_hs:', encoder_hidden_state_hs.dtype, '\n')
+
+        tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs)
+        print('Content of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states)
+        print('Shape of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.shape, '\n')
+        print('Type of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.dtype, '\n')
+
+        score = self.v_a_dense_layer(tanh_of_weighted_sum_hidden_states).squeeze(-1)  # transpose????
+        score = torch.permute(score, (2,1,0))
 
         return context_vector, attention_weights
 
@@ -748,7 +804,7 @@ if __name__ == '__main__':
 # 
 # We will train the encoder and decoder using cross-entropy loss.
 
-# In[19]:
+# In[ ]:
 
 
 ### DO NOT EDIT ###
@@ -802,7 +858,7 @@ def train_rnn_model(encoder, decoder, dataset, optimizer, trg_vocab, device, n_e
     print('Model trained!')
 
 
-# In[20]:
+# In[ ]:
 
 
 ### DO NOT EDIT ###
@@ -824,7 +880,7 @@ if __name__ == '__main__':
     print('Encoder and Decoder models initialized!')
 
 
-# In[21]:
+# In[ ]:
 
 
 ### DO NOT EDIT ###

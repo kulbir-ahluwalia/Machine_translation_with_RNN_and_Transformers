@@ -106,9 +106,9 @@ def train_test_split(src_tensor, trg_tensor):
 
 ### DO NOT EDIT ###
 
-# if __name__ == '__main__':
-#     os.system("wget http://www.manythings.org/anki/spa-eng.zip")
-#     os.system("unzip -o spa-eng.zip")
+if __name__ == '__main__':
+    os.system("wget http://www.manythings.org/anki/spa-eng.zip")
+    os.system("unzip -o spa-eng.zip")
 
 
 # Now we visualize the data.
@@ -840,21 +840,6 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         input_rep += '}'
         dec = RnnDecoder(trg_vocab=inp['trg_vocab'],embedding_dim=inp['embedding_dim'],hidden_units=inp['hidden_units'])
         dec_hs = torch.rand(1, inp["batch_size"], inp['hidden_units'])
-
-        # ###############################################################
-        # # print('Shape of dec_hs:', dec_hs.shape, '\n')
-        # # print('Type of dec_hs:', dec_hs.dtype, '\n')
-        #
-        # enc_output=inp['encoder_outputs']
-        # # print('Content of enc_output:', enc_output)
-        # # print('Shape of enc_output:', enc_output.shape, '\n')
-        # # print('Type of enc_output:', enc_output.dtype, '\n')
-        #
-        # test_decoder = dec.compute_attention(dec_hs, enc_output)
-        # # print(f"test_decoder is: {test_decoder}")
-        # #################################################################
-
-
         x = torch.randint(low=0,high=len(inp["trg_vocab"]),size=(inp["batch_size"], 1))
         with torch.no_grad():
             dec_out = dec(x=x, dec_hs=dec_hs,enc_output=inp['encoder_outputs'])
@@ -1083,11 +1068,12 @@ def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
         - Save dec_input in curr_output at index t
     """
     # Initialize variables
-    trg_vocab = decoder.trg_vocab
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    trg_vocab = (decoder.trg_vocab)
     batch_size = src.size(1)
 
-    curr_output = torch.zeros((batch_size, max_decode_len))
-    curr_predictions = torch.zeros((batch_size, max_decode_len, len(trg_vocab.idx2word)))
+    curr_output = (torch.zeros((batch_size, max_decode_len))).to(device)
+    curr_predictions = (torch.zeros((batch_size, max_decode_len, len(trg_vocab.idx2word)))).to(device)
 
     # We start the decoding with the start token for each example
     dec_input = (torch.tensor([[trg_vocab.word2idx['<start>']]] * batch_size)).to(device)
@@ -1100,12 +1086,14 @@ def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
     ### TODO: Implement decoding algorithm ###
     # print(f"INFERENCE of DECODER src:{src}  [max_src_length, batch_size] src.shape: {src.shape} \n")
     encoder_output, encoder_hidden_state = encoder(src)
+    encoder_output = encoder_output.to(device)
+    encoder_hidden_state = encoder_hidden_state.to(device)
 
     # print(f"max_decode_len: {max_decode_len}")
     dec_hs = encoder_hidden_state.to(device)
 
 
-    for t in range(max_decode_len):
+    for t in range(1,max_decode_len):
         # print(f"INSIDE FOR LOOP T is: {t}")
         if t==0:
             x = dec_input.to(device)
@@ -1167,12 +1155,15 @@ def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
             enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
         """
         fc_out, dec_hs, attention_weights = decoder(x=x, dec_hs=dec_hs,enc_output=enc_output)
+        fc_out = fc_out.to(device)
+        dec_hs = dec_hs.to(device)
+        attention_weights = attention_weights.to(device)
         # print('Shape of fc_out  (Unnormalized) output distribution [batch_size, vocab_size]:', fc_out.shape)
         # print('Shape of dec_hs Decoder hidden state; [1, batch_size, hidden_units]:', dec_hs.shape)
         # print('Shape of attention_weights [batch_size, max_len_src, 1]:', attention_weights.shape)
 
 
-        curr_predictions[:, t, :] = fc_out
+        curr_predictions[:, t, :] = fc_out.to(device)
         # print('Shape of curr_predictions : [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
 
         new_dec_input = (torch.argmax(fc_out, dim=1)).to(device)
@@ -1182,7 +1173,7 @@ def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
         # print('Shape of new_dec_input_unsqueezed:', new_dec_input_unsqueezed.shape, '\n')
 
         # print('Shape of dec_input before concatenation:', dec_input.shape, '\n')
-        dec_input = torch.cat([dec_input, new_dec_input_unsqueezed], dim=1)
+        dec_input = (torch.cat([dec_input, new_dec_input_unsqueezed], dim=1)).to(device)
         # print('Shape of dec_input after concatenation:', dec_input.shape, '\n')
         # print(f"dec_input: {dec_input}")
 
@@ -1961,8 +1952,8 @@ if __name__=='__main__':
         print("Saving Transformer model....") 
         # torch.save(transformer_encoder, 'drive/My Drive/transformer_encoder.pt')
         # torch.save(transformer_decoder, 'drive/My Drive/transformer_decoder.pt')
-        torch.save(rnn_encoder, 'saved_models/transformer_encoder.pt')
-        torch.save(rnn_decoder, 'saved_models/transformer_decoder.pt')
+        torch.save(transformer_encoder, 'saved_models/transformer_encoder.pt')
+        torch.save(transformer_decoder, 'saved_models/transformer_decoder.pt')
 
 
 # In[ ]:

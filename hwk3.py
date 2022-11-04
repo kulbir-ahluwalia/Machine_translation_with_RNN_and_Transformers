@@ -17,7 +17,7 @@
 
 # # Step 1: Download & Prepare the Data
 
-# In[4]:
+# In[1]:
 
 
 ### DO NOT EDIT ###
@@ -35,7 +35,7 @@ rnn_encoder, rnn_encoder, transformer_encoder, transformer_decoder = None, None,
 # ## Helper Functions
 # This cell contains helper functions for the dataloader.
 
-# In[5]:
+# In[2]:
 
 
 ### DO NOT EDIT ###
@@ -101,7 +101,7 @@ def train_test_split(src_tensor, trg_tensor):
 # 
 # Here we will download the translation data. We will learn a model to translate Spanish to English.
 
-# In[6]:
+# In[3]:
 
 
 ### DO NOT EDIT ###
@@ -113,7 +113,7 @@ def train_test_split(src_tensor, trg_tensor):
 
 # Now we visualize the data.
 
-# In[7]:
+# In[4]:
 
 
 ### DO NOT EDIT ###
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
 # Next we preprocess the data.
 
-# In[8]:
+# In[5]:
 
 
 ### DO NOT EDIT ###
@@ -148,7 +148,7 @@ if __name__ == '__main__':
 # 
 # Then we prepare the dataloader and make sure it returns the source sentence and target sentence.
 
-# In[9]:
+# In[6]:
 
 
 ### DO NOT EDIT ###
@@ -181,7 +181,7 @@ class MyData(Dataset):
         return len(self.data)
 
 
-# In[10]:
+# In[7]:
 
 
 ### DO NOT EDIT ###
@@ -191,7 +191,7 @@ import random
 from torch.utils.data import DataLoader
 
 
-# In[11]:
+# In[8]:
 
 
 ### DO NOT EDIT ###
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
 # ## Build Vocabulary
 
-# In[12]:
+# In[9]:
 
 
 ### DO NOT EDIT ###
@@ -227,7 +227,7 @@ if __name__ == '__main__':
 # 
 # We instantiate our training and validation datasets.
 
-# In[13]:
+# In[10]:
 
 
 ### DO NOT EDIT ###
@@ -249,7 +249,7 @@ if __name__ == '__main__':
     test_dataset = DataLoader(test_dataset, batch_size=BATCH_SIZE, drop_last=True, shuffle=False)
 
 
-# In[14]:
+# In[11]:
 
 
 ### DO NOT EDIT ###
@@ -274,7 +274,7 @@ if __name__ == '__main__':
 # 4. Another attention explanation: https://towardsdatascience.com/attention-and-its-different-forms-7fc3674d14dc
 # 
 
-# In[15]:
+# In[12]:
 
 
 ### DO NOT EDIT ###
@@ -293,7 +293,7 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction, corpus_b
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[16]:
+# In[13]:
 
 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
@@ -310,7 +310,8 @@ class RnnEncoder(nn.Module):
         self.src_vocab = src_vocab # Do not change
         vocab_size = len(src_vocab)
 
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.hidden_units = hidden_units
 
         ### TODO ###
@@ -322,8 +323,9 @@ class RnnEncoder(nn.Module):
 
 
         # Initialize a single directional GRU with 1 layer and batch_first=False
-        self.GRU = nn.GRU(input_size=embedding_dim, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=False).to(self.device)
-
+        # self.GRU = nn.GRU(input_size=embedding_dim, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=False).to(self.device)
+        self.GRU = nn.GRU(input_size=embedding_dim, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=False).to(device)
+        # self.GRU = nn.GRU(input_size=embedding_dim, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=False)
 
     def forward(self, x):
         """
@@ -351,9 +353,9 @@ class RnnEncoder(nn.Module):
         #  Default: False, then the input and output tensors are provided as (seq, batch, feature).
 
 
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # Pass texts through your embedding layer to convert to word embeddings
-
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         x_int64 = x.type(torch.int64)
         # print('Content of embedding:', x_int64)
         # print('Shape of embedding:', x_int64.shape, '\n')
@@ -361,6 +363,7 @@ class RnnEncoder(nn.Module):
 
         # Resulting: shape: [batch_size, max_len, embed_size]
         final_embedding = (self.embedding(x_int64))
+        # final_embedding_gpu = final_embedding
         final_embedding_gpu = final_embedding.to(device)
         # print(f"  final_embedding_gpu: {final_embedding_gpu.shape}, final_embedding_gpu dtype: {final_embedding_gpu.dtype}, final_embedding_gpu device: {final_embedding_gpu.get_device()}")
 
@@ -371,6 +374,7 @@ class RnnEncoder(nn.Module):
         # print(f"(batch_size, max_len, self.hidden_size): ({batch_size}, {max_len}, {self.hidden_units})")
 
         initial_state_h0 = torch.nn.parameter.Parameter(torch.randn(1*self.num_layers, batch_size, self.hidden_units)).to(device)
+        # initial_state_h0 = torch.nn.parameter.Parameter(torch.randn(1*self.num_layers, batch_size, self.hidden_units))
         # print(f"  initial_state_h0: {initial_state_h0.shape}, initial_state_h0 dtype: {initial_state_h0.dtype}, initial_state_h0 device: {initial_state_h0.get_device()}")
 
         # gru_input = torch.randn(batch_size, max_len, self.hidden_size).to(device)
@@ -390,7 +394,7 @@ class RnnEncoder(nn.Module):
 # 
 # The code below runs a sanity check for your `RnnEncoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[17]:
+# In[14]:
 
 
 ### DO NOT EDIT ###
@@ -449,7 +453,7 @@ def sanityCheckModel(all_test_params, NN, expected_outputs, init_or_forward, dat
         del stu_nn
 
 
-# In[18]:
+# In[15]:
 
 
 ### DO NOT EDIT ###
@@ -525,7 +529,7 @@ if __name__ == '__main__':
 # 
 # <font color='green'><b>Hint:</b> You should be able to implement all of this <b>without any for loops</b> using the Pytorch library. Also, remember that these operations should operate in parallel for each item in your batch.</font>
 
-# In[19]:
+# In[16]:
 
 
 class RnnDecoder(nn.Module):
@@ -543,31 +547,44 @@ class RnnDecoder(nn.Module):
 
         ### TODO ###
 
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.hidden_units = hidden_units
         self.rnn_decoder_softmax = torch.nn.Softmax(dim=1)
 
         # Initialize embedding layer
-        self.embedding = nn.Embedding(vocab_size, embedding_dim).to(self.device)
+        # self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        # self.embedding = nn.Embedding(vocab_size, embedding_dim).to(self.device)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim).to(device)
         self.embed_size = embedding_dim
         self.num_layers = 1
 
 
         # Initialize layers to compute attention score
-        self.w1_dense_layer = nn.Linear(hidden_units, hidden_units).to(self.device)
-        self.w2_dense_layer = nn.Linear(hidden_units, hidden_units).to(self.device)
-        self.v_a_dense_layer = nn.Linear(hidden_units, 1).to(self.device)
+        # self.w1_dense_layer = nn.Linear(hidden_units, hidden_units)
+        # self.w2_dense_layer = nn.Linear(hidden_units, hidden_units)
+        # self.v_a_dense_layer = nn.Linear(hidden_units, 1)
+
+        # self.w1_dense_layer = nn.Linear(hidden_units, hidden_units).to(self.device)
+        # self.w2_dense_layer = nn.Linear(hidden_units, hidden_units).to(self.device)
+        # self.v_a_dense_layer = nn.Linear(hidden_units, 1).to(self.device)
+
+        self.w1_dense_layer = nn.Linear(hidden_units, hidden_units).to(device)
+        self.w2_dense_layer = nn.Linear(hidden_units, hidden_units).to(device)
+        self.v_a_dense_layer = nn.Linear(hidden_units, 1).to(device)
 
         # Initialize a single directional GRU with 1 layer and batch_first=True
-        self.GRU = nn.GRU(input_size=embedding_dim+hidden_units, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=True).to(self.device)
+        # self.GRU = nn.GRU(input_size=embedding_dim+hidden_units, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=True).to(self.device)
 
+        self.GRU = nn.GRU(input_size=embedding_dim+hidden_units, hidden_size=hidden_units, num_layers=self.num_layers, batch_first=True).to(device)
 
         # NOTE: Input to your RNN will be the concatenation of your embedding vector and the context vector
 
 
         # Initialize fully connected layer
-        self.dense_layer = nn.Linear(hidden_units, vocab_size).to(self.device)
-
+        # self.dense_layer = nn.Linear(hidden_units, vocab_size).to(self.device)
+        self.dense_layer = nn.Linear(hidden_units, vocab_size).to(device)
+        # self.dense_layer = nn.Linear(hidden_units, vocab_size)
     
 
     def compute_attention(self, dec_hs, enc_output):
@@ -593,9 +610,13 @@ class RnnDecoder(nn.Module):
             (4) Return context_vector & attention_weights
         '''      
         # context_vector, attention_weights = None, None
-
-        dec_hs = dec_hs.to(self.device)
-        enc_output = enc_output.to(self.device)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # dec_hs = dec_hs
+        # enc_output = enc_output
+        # dec_hs = dec_hs.to(self.device)
+        # enc_output = enc_output.to(self.device)
+        dec_hs = dec_hs.to(device)
+        enc_output = enc_output.to(device)
 
         # why is it not even printing anything?
         # print('Content of dec_hs:', dec_hs)
@@ -639,7 +660,8 @@ class RnnDecoder(nn.Module):
         # dec_hs: Decoder hidden state;  [1, batch_size, hidden_units]
         # CONVERT to dec_hs: Decoder hidden state; [1, 1, batch_size, hidden_units] ??
         # decoder_hidden_state_ht = self.w1_dense_layer(dec_hs.unsqueeze(1)).to(self.device)
-        decoder_hidden_state_ht = self.w1_dense_layer(dec_hs)
+        # decoder_hidden_state_ht = self.w1_dense_layer(dec_hs)
+        decoder_hidden_state_ht = self.w1_dense_layer(dec_hs).to(device)
         # print('Content of decoder_hidden_state_ht:', decoder_hidden_state_ht)
         # print('Shape of decoder_hidden_state_ht  [1, batch_size, hidden_units]:', decoder_hidden_state_ht.shape, '\n')
         # print('Type of decoder_hidden_state_ht:', decoder_hidden_state_ht.dtype, '\n')
@@ -647,12 +669,16 @@ class RnnDecoder(nn.Module):
 
         #  enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
         # CONVERT to enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
-        encoder_hidden_state_hs = self.w2_dense_layer(enc_output).to(self.device)
+        # encoder_hidden_state_hs = self.w2_dense_layer(enc_output)
+        # encoder_hidden_state_hs = self.w2_dense_layer(enc_output).to(self.device)
+        encoder_hidden_state_hs = self.w2_dense_layer(enc_output).to(device)
         # print('Content of encoder_hidden_state_hs:', encoder_hidden_state_hs)
         # print('Shape of encoder_hidden_state_hs [max_len_src, batch_size, hidden_units]:', encoder_hidden_state_hs.shape, '\n')
         # print('Type of encoder_hidden_state_hs:', encoder_hidden_state_hs.dtype, '\n')
 
-        tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs).to(self.device)
+        # tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs)
+        # tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs).to(self.device)
+        tanh_of_weighted_sum_hidden_states = torch.tanh(decoder_hidden_state_ht + encoder_hidden_state_hs).to(device)
         # print('Content of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states)
         # print('Shape of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.shape, '\n')
         # print('Type of tanh_of_weighted_sum_hidden_states:', tanh_of_weighted_sum_hidden_states.dtype, '\n')
@@ -714,18 +740,7 @@ class RnnDecoder(nn.Module):
 
         # context_vector = [batch_size, hidden_units] == [1, 50]
 
-
-
-
-
-
-
-
-
-
-
         attention_weights = attention_weights_alpha_ts.type(torch.float32)
-
 
         return context_vector, attention_weights
 
@@ -755,22 +770,27 @@ class RnnDecoder(nn.Module):
         '''
         fc_out, attention_weights = None, None
 
+        # print(f"FORWARD of DECODER: x.shape: {x.shape} \n, dec_hs.shape: {dec_hs.shape} \n, enc_output.shape: {enc_output.shape}")
         ### TODO ###
         context_vector, attention_weights = self.compute_attention(dec_hs, enc_output)
-        # print('Shape of context_vector [batch_size, hidden_units] == [1, 50]:', context_vector.shape, '\n')
+        # print('FORWARD of DECODER: Shape of context_vector [batch_size, hidden_units] == [1, 50]:', context_vector.shape, '\n')
 
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        x = x.to(self.device)
+        x = x.to(device)
         final_embedding =  self.embedding(x)
-        final_embedding_gpu = final_embedding.to(self.device)
+
+        final_embedding_gpu = final_embedding.to(device)
+        # final_embedding_gpu = final_embedding
         embedding_vector = final_embedding_gpu
         # print(f"embedding dimn:{embedding_dim}")
         # print('Shape of embedding_vector  [batch_size, 1, embedding_dim] == [1, 1, 50]:', embedding_vector.shape, '\n')
 
-        context_vector_unsqueezed = context_vector.unsqueeze(1)
+        context_vector_unsqueezed = (context_vector.unsqueeze(1)).to(device)
         # print('Shape of context_vector_unsqueezed [batch_size, 1, hidden_units] == [1, 1, 50]::', context_vector_unsqueezed.shape, '\n')
 
-        concatenated_tensor = (torch.cat([context_vector_unsqueezed, embedding_vector], dim=2)).to(self.device)
+        # concatenated_tensor = (torch.cat([context_vector_unsqueezed, embedding_vector], dim=2))
+        concatenated_tensor = (torch.cat([context_vector_unsqueezed, embedding_vector], dim=2)).to(device)
         # print(f"  concatenated_tensor shape: : {concatenated_tensor.shape}")
 
         rnn_output, hn  = self.GRU(concatenated_tensor)
@@ -779,10 +799,12 @@ class RnnDecoder(nn.Module):
         # print(f"  rnn_output: {rnn_output.shape}")
         # print(f" hn: {hn.shape}")
 
-        linear_output = self.dense_layer(rnn_output).to(self.device)
+        # linear_output = self.dense_layer(rnn_output)
+        linear_output = self.dense_layer(rnn_output).to(device)
         # print(f"  linear_output: {linear_output.shape}")
 
-        linear_output_squeezed = (linear_output.squeeze(1)).to(self.device)
+        # linear_output_squeezed = (linear_output.squeeze(1))
+        linear_output_squeezed = (linear_output.squeeze(1)).to(device)
         # print(f"  linear_output_squeezed: {linear_output_squeezed.shape}")
 
         fc_out = linear_output_squeezed
@@ -797,7 +819,7 @@ class RnnDecoder(nn.Module):
 # 
 # The code below runs a sanity check for your `RnnDecoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[20]:
+# In[17]:
 
 
 ### DO NOT EDIT ###
@@ -819,22 +841,22 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         dec = RnnDecoder(trg_vocab=inp['trg_vocab'],embedding_dim=inp['embedding_dim'],hidden_units=inp['hidden_units'])
         dec_hs = torch.rand(1, inp["batch_size"], inp['hidden_units'])
 
-        ###############################################################
-        # print('Shape of dec_hs:', dec_hs.shape, '\n')
-        # print('Type of dec_hs:', dec_hs.dtype, '\n')
-
-        enc_output=inp['encoder_outputs']
-        # print('Content of enc_output:', enc_output)
-        # print('Shape of enc_output:', enc_output.shape, '\n')
-        # print('Type of enc_output:', enc_output.dtype, '\n')
-
-        test_decoder = dec.compute_attention(dec_hs, enc_output)
-        # print(f"test_decoder is: {test_decoder}")
-        #################################################################
+        # ###############################################################
+        # # print('Shape of dec_hs:', dec_hs.shape, '\n')
+        # # print('Type of dec_hs:', dec_hs.dtype, '\n')
+        #
+        # enc_output=inp['encoder_outputs']
+        # # print('Content of enc_output:', enc_output)
+        # # print('Shape of enc_output:', enc_output.shape, '\n')
+        # # print('Type of enc_output:', enc_output.dtype, '\n')
+        #
+        # test_decoder = dec.compute_attention(dec_hs, enc_output)
+        # # print(f"test_decoder is: {test_decoder}")
+        # #################################################################
 
 
         x = torch.randint(low=0,high=len(inp["trg_vocab"]),size=(inp["batch_size"], 1))
-        with torch.no_grad(): 
+        with torch.no_grad():
             dec_out = dec(x=x, dec_hs=dec_hs,enc_output=inp['encoder_outputs'])
             if not isinstance(dec_out, tuple):
                 msg = '\tFAILED\tYour RnnDecoder.forward() output must be a tuple; received ' + str(type(dec_out))
@@ -857,13 +879,13 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         if not torch.is_tensor(stu_attention_weights):
             has_passed = False
             msg += '\tFAILED\tAttention Weights must be a torch.Tensor; received ' + str(type(stu_attention_weights)) + " "
-        
+
         status = 'PASSED' if has_passed else 'FAILED'
         if not has_passed:
             message = '\t' + status + "\t Init Input: " + input_rep + '\tForward Input Shape: ' + str(inp['encoder_outputs'].shape) + '\tExpected Output Shape: ' + str(expected_fc_outs[i]) + '\t' + msg
             print(message)
             continue
-        
+
         has_passed = stu_fc_out.size() == expected_fc_outs[i]
         msg = 'Your Output Shape: ' + str(stu_fc_out.size())
         status = 'PASSED' if has_passed else 'FAILED'
@@ -890,7 +912,7 @@ def sanityCheckDecoderModelForward(inputs, NN, expected_outputs):
         print()
 
 
-# In[21]:
+# In[18]:
 
 
 ### DO NOT EDIT ###
@@ -943,7 +965,7 @@ if __name__ == '__main__':
 # 
 # We will train the encoder and decoder using cross-entropy loss.
 
-# In[22]:
+# In[19]:
 
 
 ### DO NOT EDIT ###
@@ -997,7 +1019,7 @@ def train_rnn_model(encoder, decoder, dataset, optimizer, trg_vocab, device, n_e
     print('Model trained!')
 
 
-# In[23]:
+# In[20]:
 
 
 ### DO NOT EDIT ###
@@ -1019,7 +1041,7 @@ if __name__ == '__main__':
     print('Encoder and Decoder models initialized!')
 
 
-# In[24]:
+# In[21]:
 
 
 ### DO NOT EDIT ###
@@ -1034,7 +1056,7 @@ if __name__ == '__main__':
 # 
 # Here, you will write a function that takes your trained model and a source sentence (Spanish), and returns its translation (English sentence). Instead of using teacher forcing, the input to the decoder at time step $t_i$ will be the prediction of the decoder at time $t_{i-1}$.
 
-# In[25]:
+# In[22]:
 
 
 def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
@@ -1063,22 +1085,124 @@ def decode_rnn_model(encoder, decoder, src, max_decode_len, device):
     # Initialize variables
     trg_vocab = decoder.trg_vocab
     batch_size = src.size(1)
+
     curr_output = torch.zeros((batch_size, max_decode_len))
     curr_predictions = torch.zeros((batch_size, max_decode_len, len(trg_vocab.idx2word)))
 
     # We start the decoding with the start token for each example
-    dec_input = torch.tensor([[trg_vocab.word2idx['<start>']]] * batch_size)
+    dec_input = (torch.tensor([[trg_vocab.word2idx['<start>']]] * batch_size)).to(device)
+    # print(f"OUTSIDE FOR LOOP dec_input: {dec_input}, dec_input.type = {dec_input.type}")
+    # print(f"OUTSIDE FOR LOOP dec_input.shape: {dec_input.shape}")
+
+    # dec_input_unsqueezed = (dec_input.unsqueeze(1)).to(device)
     curr_output[:, 0] = dec_input.squeeze(1)
     
     ### TODO: Implement decoding algorithm ###
+    # print(f"INFERENCE of DECODER src:{src}  [max_src_length, batch_size] src.shape: {src.shape} \n")
+    encoder_output, encoder_hidden_state = encoder(src)
 
-    
+    # print(f"max_decode_len: {max_decode_len}")
+    dec_hs = encoder_hidden_state.to(device)
+
+
+    for t in range(max_decode_len):
+        # print(f"INSIDE FOR LOOP T is: {t}")
+        if t==0:
+            x = dec_input.to(device)
+            # print(f"x when t={t}: {x}, x.shape={x.shape}")
+        elif t>0:
+            x_int = (dec_input[:, -1]).to(device)
+            # print(f"x when t={t}: {x}, x.shape={x.shape}")
+            x = x_int.view(batch_size,1).to(device)
+            # print(f"x after view when t={t}: {x}, x.shape={x.shape}")
+
+        # dec_input_unsqueezed = (dec_input.unsqueeze(1)).to(device)
+        #
+        # x = (dec_input_unsqueezed).to(device)
+        # x = (dec_input).to(device)
+
+        # x = (target).to(device)
+
+
+
+        # if t==0:
+        #     dec_hs = encoder_hidden_state.to(device)
+        #
+        # elif t>0:
+        #     dec_hs=dec_hs
+        # print('Shape of dec_hs dec_hs: Decoder hidden state; [1, batch_size, hidden_units]:', dec_hs.shape, '\n')
+
+        enc_output = encoder_output.to(device)
+        # print('Shape of enc_output Encoder outputs; [max_len_src, batch_size, hidden_units]:', enc_output.shape, '\n')
+
+        # print(f"INFERENCE of DECODER: [batch_size, 1] x.shape: {x.shape} \n, dec_hs.shape: {dec_hs.shape} \n, enc_output.shape: {enc_output.shape}")
+        # print('Shape of dec_input :', dec_input.shape, '\n')
+        # print('Shape of dec_input_unsqueezed :', dec_input_unsqueezed.shape, '\n')
+        # print('Shape of x [batch_size, 1] :', x.shape, '\n')
+
+
+
+
+
+
+
+
+        # x.shape: torch.Size([4, 1]),
+        # , dec_hs.shape: torch.Size([1, 4, 200]),
+        # , enc_output.shape: torch.Size([16, 4, 200])
+        # Shape of context_vector [batch_size, hidden_units] == [1, 50]: torch.Size([4, 200])
+
+        # Shape of dec_input : torch.Size([5, 1])
+        #
+        # Shape of x : torch.Size([5, 1])
+        #
+        # Shape of dec_hs : torch.Size([1, 5, 256])
+        #
+        # Shape of enc_output : torch.Size([16, 5, 256])
+
+        """
+         Args:
+            x: Input token; [batch_size, 1]
+            dec_hs: Decoder hidden state; [1, batch_size, hidden_units]
+            enc_output: Encoder outputs; [max_len_src, batch_size, hidden_units]
+        """
+        fc_out, dec_hs, attention_weights = decoder(x=x, dec_hs=dec_hs,enc_output=enc_output)
+        # print('Shape of fc_out  (Unnormalized) output distribution [batch_size, vocab_size]:', fc_out.shape)
+        # print('Shape of dec_hs Decoder hidden state; [1, batch_size, hidden_units]:', dec_hs.shape)
+        # print('Shape of attention_weights [batch_size, max_len_src, 1]:', attention_weights.shape)
+
+
+        curr_predictions[:, t, :] = fc_out
+        # print('Shape of curr_predictions : [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+
+        new_dec_input = (torch.argmax(fc_out, dim=1)).to(device)
+        # print('Shape of new_dec_input:', new_dec_input.shape, '\n')
+
+        new_dec_input_unsqueezed = (torch.argmax(fc_out, dim=1).unsqueeze(1)).to(device)
+        # print('Shape of new_dec_input_unsqueezed:', new_dec_input_unsqueezed.shape, '\n')
+
+        # print('Shape of dec_input before concatenation:', dec_input.shape, '\n')
+        dec_input = torch.cat([dec_input, new_dec_input_unsqueezed], dim=1)
+        # print('Shape of dec_input after concatenation:', dec_input.shape, '\n')
+        # print(f"dec_input: {dec_input}")
+
+        # dec_input.append(new_dec_input)
+        # dec_input = ((torch.argmax(fc_out, dim=1)).unsqueeze(1)).to(device)
+        # print('new_dec_input:', new_dec_input)
+
+
+        curr_output[:, t] = new_dec_input
+        # print('curr_output:', curr_output)
+        # print('Shape of curr_output: [batch_size, max_decode_len]:', curr_output.shape, '\n')
+
+
+
     return curr_output, curr_predictions
 
 
 # You can run the cell below to qualitatively compare some of the sentences your model generates with the some of the correct translations.
 
-# In[26]:
+# In[23]:
 
 
 ### DO NOT EDIT ###
@@ -1110,7 +1234,7 @@ if __name__ == '__main__':
 # 1.   https://en.wikipedia.org/wiki/BLEU
 # 2.   https://www.aclweb.org/anthology/P02-1040.pdf
 
-# In[27]:
+# In[24]:
 
 
 ### DO NOT EDIT ###
@@ -1193,7 +1317,7 @@ def evaluate_rnn_model(encoder, decoder, test_dataset, target_tensor_val, device
     return compute_bleu_scores(target_tensor_val, target_output, final_output, trg_vocab)
 
 
-# In[28]:
+# In[25]:
 
 
 ### DO NOT EDIT ###
@@ -1211,7 +1335,7 @@ if __name__ == '__main__':
 # <li> Another tutorial: http://peterbloem.nl/blog/transformers
 # </ul>
 
-# In[29]:
+# In[26]:
 
 
 ### DO NOT EDIT ###
@@ -1231,7 +1355,7 @@ import math
 # 
 # <font color='green'><b>Hint:</b> We encourage you to try to implement this function with no for loops, which is the general practice (as it is faster). However, since we are using relatively small datasets, you are welcome to do this with for loops if you prefer.
 
-# In[30]:
+# In[27]:
 
 
 def create_positional_embedding(max_len, embed_dim):
@@ -1255,7 +1379,7 @@ def create_positional_embedding(max_len, embed_dim):
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[31]:
+# In[28]:
 
 
 class TransformerEncoder(nn.Module):
@@ -1325,7 +1449,7 @@ class TransformerEncoder(nn.Module):
 # 
 # The code below runs a sanity check for your `TransformerEncoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[32]:
+# In[29]:
 
 
 ### DO NOT EDIT ###
@@ -1818,23 +1942,27 @@ if __name__ == '__main__':
 import pickle
 
 
-# In[ ]:
+# In[30]:
 
 
 ### DO NOT EDIT ###
 
 if __name__=='__main__':
-    from google.colab import drive
-    drive.mount('/content/drive')
+    # from google.colab import drive
+    # drive.mount('/content/drive')
     print()
     if rnn_encoder is not None and rnn_encoder is not None:
         print("Saving RNN model....") 
-        torch.save(rnn_encoder, 'drive/My Drive/rnn_encoder.pt')
-        torch.save(rnn_decoder, 'drive/My Drive/rnn_decoder.pt')
+        # torch.save(rnn_encoder, 'drive/My Drive/rnn_encoder.pt')
+        # torch.save(rnn_decoder, 'drive/My Drive/rnn_decoder.pt')
+        torch.save(rnn_encoder, 'saved_models/rnn_encoder.pt')
+        torch.save(rnn_decoder, 'saved_models/rnn_decoder.pt')
     if transformer_encoder is not None and transformer_decoder is not None:
         print("Saving Transformer model....") 
-        torch.save(transformer_encoder, 'drive/My Drive/transformer_encoder.pt')
-        torch.save(transformer_decoder, 'drive/My Drive/transformer_decoder.pt')
+        # torch.save(transformer_encoder, 'drive/My Drive/transformer_encoder.pt')
+        # torch.save(transformer_decoder, 'drive/My Drive/transformer_decoder.pt')
+        torch.save(rnn_encoder, 'saved_models/transformer_encoder.pt')
+        torch.save(rnn_decoder, 'saved_models/transformer_decoder.pt')
 
 
 # In[ ]:

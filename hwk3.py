@@ -1358,9 +1358,10 @@ def create_positional_embedding(max_len, embed_dim):
     '''
     pe = None
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    torch.set_printoptions(precision=32)
 
     ### TODO ###
-    n = 100
+    n = 10000
     n_tensor = torch.LongTensor([n])
     d = embed_dim
 
@@ -1377,12 +1378,12 @@ def create_positional_embedding(max_len, embed_dim):
 
             ########################################################################
             # NUMPY
-            # denominator = np.power(n, 2*i/d)
+            # denominator = np.power(n, 2*map_column_indices_i/d)
             # positional_encoding_matrix[token_index, 2*map_column_indices_i] = np.sin(token_index/denominator)
             # positional_encoding_matrix[token_index, 2*map_column_indices_i+1] = np.cos(token_index/denominator)
 
             #########################################################################
-            # PYTORCH
+            # # PYTORCH
             denominator = torch.pow(n_tensor, exponent)
             # print(f"denominator: {denominator}, denominator.shape: {denominator.shape}")
             positional_encoding_matrix[token_index, 2*map_column_indices_i] = torch.sin(torch.FloatTensor(token_index/denominator))
@@ -1395,7 +1396,7 @@ def create_positional_embedding(max_len, embed_dim):
     # print(f"positional encoding is: {pe_tensor}. pe.shape is: {pe_tensor.shape}")
     # print(f"pe_tensor.shape is: {pe_tensor.shape}")
 
-    pe_tensor_unsquezed = pe_tensor.unsqueeze(1)
+    pe_tensor_unsquezed = (pe_tensor.unsqueeze(1)).to(device)
     # print(f"positional encoding unsqueezed is: {pe_tensor_unsquezed}. pe_tensor_unsquezed.shape is: {pe_tensor_unsquezed.shape}")
     # print(f"pe_tensor_unsquezed.shape is: {pe_tensor_unsquezed.shape}")
 
@@ -1425,7 +1426,7 @@ def create_positional_embedding(max_len, embed_dim):
 # In[29]:
 
 
-# pe_tensor_unsquezed = create_positional_embedding(max_len=4, embed_dim=4)
+# pe_tensor_unsquezed = create_positional_embedding(max_len=15, embed_dim=4)
 # print(pe_tensor_unsquezed)
 # print(pe_tensor_unsquezed[0,0,2])
 
@@ -1436,7 +1437,7 @@ def create_positional_embedding(max_len, embed_dim):
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[30]:
+# In[33]:
 
 
 class TransformerEncoder(nn.Module):
@@ -1517,6 +1518,7 @@ class TransformerEncoder(nn.Module):
         ### TODO ###
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # x_int64 = x.type(torch.int64)
+        max_len, batch_size = x.shape
 
         # print('Content of embedding:', x_int64)
         # print('Shape of embedding:', x_int64.shape, '\n')
@@ -1525,15 +1527,6 @@ class TransformerEncoder(nn.Module):
         # Resulting: shape: [batch_size, max_len, embed_size]
         x = x.to(device)
         final_embedding = self.embedding(x)
-        # final_embedding_gpu = final_embedding
-        # final_embedding_gpu = final_embedding.to(device)
-        # print(f"  final_embedding_gpu: {final_embedding_gpu.shape}, final_embedding_gpu dtype: {final_embedding_gpu.dtype}, final_embedding_gpu device: {final_embedding_gpu.get_device()}")
-
-        # print('Content of final_embedding_gpu:', final_embedding_gpu)
-
-        max_len, batch_size = x.shape
-        # print(f"batch_size: {batch_size}, max_len: {max_len}")
-        # print(f"(batch_size, max_len, self.hidden_size): ({batch_size}, {max_len}, {self.hidden_units})")
 
         # x_with_posn_embedding = self.position_embedding(x)
         # print(f"x_with_posn_embedding.shape: {x_with_posn_embedding.shape}")
@@ -1544,11 +1537,10 @@ class TransformerEncoder(nn.Module):
         # print(f"src_mask.shape: {src_mask.shape}")
 
         x = self.dropout_layer(final_embedding + self.position_embedding.expand_as(final_embedding))
+        print(f"x is: ")
 
         # x_with_posn_embedding_dropout = self.dropout_layer(x_with_posn_embedding)
         # print(f"x_with_posn_embedding_dropout.shape: {x_with_posn_embedding_dropout.shape}")
-
-
 
         transformer_output = self.transformer_encoder(src=x, src_key_padding_mask = src_mask)
 
@@ -1563,7 +1555,7 @@ class TransformerEncoder(nn.Module):
 # 
 # The code below runs a sanity check for your `TransformerEncoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[31]:
+# In[34]:
 
 
 ### DO NOT EDIT ###
@@ -1600,7 +1592,7 @@ if __name__=="__main__":
     sanityCheckModel(inputs, TransformerEncoder, expected_outputs, "init", None)
 
 
-# In[32]:
+# In[35]:
 
 
 ### DO NOT EDIT ###
@@ -1643,7 +1635,7 @@ if __name__=="__main__":
 # 
 # In this cell, you should implement the `__init(...)` and `forward(...)` functions, each of which is <b>5 points</b>.
 
-# In[33]:
+# In[36]:
 
 
 class TransformerDecoder(nn.Module):
@@ -1759,7 +1751,7 @@ class TransformerDecoder(nn.Module):
 
         transformer_output = self.transformer_decoder(tgt=x,memory=enc_out, tgt_mask = trg_mask)
 
-        # print(f"transformer_output.shape: {transformer_output.shape}")
+        print(f"transformer_output.shape [sequence length, batch_size, trg_vocab_size]: {transformer_output.shape}")
 
 
 
@@ -1772,7 +1764,7 @@ class TransformerDecoder(nn.Module):
 # 
 # The code below runs a sanity check for your `TransformerDecoder` class. The tests are similar to the hidden ones in Gradescope. However, note that passing the sanity check does <b>not</b> guarantee that you will pass the autograder; it is intended to help you debug.
 
-# In[34]:
+# In[37]:
 
 
 ### DO NOT EDIT ###
@@ -1813,7 +1805,7 @@ def sanityCheckTransformerDecoderModelForward(inputs, NN, expected_outputs):
         
 
 
-# In[35]:
+# In[39]:
 
 
 ### DO NOT EDIT ###
@@ -1880,7 +1872,7 @@ if __name__ == '__main__':
 # 
 # Like the RNN, we train the encoder and decoder using cross-entropy loss.
 
-# In[36]:
+# In[40]:
 
 
 ### DO NOT EDIT ###
@@ -1921,7 +1913,7 @@ def train_transformer_model(encoder, decoder, dataset, optimizer, device, n_epoc
         print('Epoch:{:2d}/{}\t Loss:{:.4f} ({:.2f}s)'.format(epoch + 1, n_epochs, mean_loss, time.time() - start))
 
 
-# In[37]:
+# In[41]:
 
 
 ### DO NOT EDIT ###
@@ -1949,7 +1941,7 @@ if __name__ == '__main__':
     print('Encoder and Decoder models initialized!')
 
 
-# In[38]:
+# In[42]:
 
 
 ### DO NOT EDIT ###
@@ -1964,7 +1956,7 @@ if __name__ == '__main__':
 # 
 # Here, you will write a function that takes your trained transformer model and a source sentence (Spanish), and returns its translation (English sentence). Like the RNN, we use the prediction of the decoder as the input to the decoder for the sequence of outputs. For the RNN, at time step $t_i$ the decoder takes the hidden state $h_{i-1}$ and the previous prediction $w_{i-1}$ at each time step. However, because the transformer does not use recurrences, we do not pass a hidden state; instead, at time step $t_i$ we pass $w_1,w_2 \cdots w_{i-1}$, which is the entire sequence predicted so far.
 
-# In[39]:
+# In[43]:
 
 
 def decode_transformer_model(encoder, decoder, src, max_decode_len, device):
@@ -2018,15 +2010,19 @@ def decode_transformer_model(encoder, decoder, src, max_decode_len, device):
 
 
         enc_output = encoder_output.to(device)
+
+
         dec_input = curr_output[ : , :t]
-        decoder_output_unnormalized_pred_probs = decoder(dec_input, encoder_output)
+        # dec_in, enc_out
+        decoder_output_unnormalized_pred_probs = decoder(dec_in=dec_input, enc_out=encoder_output)
+
         decoder_output = decoder_output_unnormalized_pred_probs.to(device)
         print('Shape of decoder_output  (Unnormalized) output distribution [batch_size, vocab_size]:', decoder_output.shape)
 
 
 
         curr_predictions[:, t, :] = decoder_output.to(device)
-        # print('Shape of curr_predictions : [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        print('Shape of curr_predictions : [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
 
 
         new_dec_input = (torch.argmax(decoder_output, dim=1)).to(device)
@@ -2046,17 +2042,17 @@ def decode_transformer_model(encoder, decoder, src, max_decode_len, device):
 
 
         curr_output[:, t] = new_dec_input
-        # print('curr_output:', curr_output)
+        print('curr_output:', curr_output)
+        print('curr_output.shape:', curr_output.shape)
         # print('Shape of curr_output: [batch_size, max_decode_len]:', curr_output.shape, '\n')
 
     #
-
     return curr_output, curr_predictions, enc_output
 
 
 # You can run the cell below to qualitatively compare some of the sentences your model generates with the some of the correct translations.
 
-# In[40]:
+# In[44]:
 
 
 ### DO NOT EDIT ###

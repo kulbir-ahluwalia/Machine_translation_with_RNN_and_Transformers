@@ -1962,7 +1962,7 @@ if __name__ == '__main__':
     # HYPERPARAMETERS - feel free to change
     LEARNING_RATE = 0.001
     DIM_FEEDFORWARD=512
-    N_EPOCHS=10
+    N_EPOCHS=20
     N_HEADS=2
     N_LAYERS=2
 

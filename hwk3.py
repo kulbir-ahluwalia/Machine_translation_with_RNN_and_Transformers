@@ -1013,7 +1013,7 @@ if __name__ == '__main__':
     # HYPERPARAMETERS - feel free to change
     LEARNING_RATE = 0.001
     HIDDEN_UNITS=256
-    N_EPOCHS=1
+    N_EPOCHS=20
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   
@@ -1734,6 +1734,7 @@ class TransformerDecoder(nn.Module):
 
         ### TODO ###
         ### TODO ###
+        # print(f"DECODER FORWARD AFTER SQUEEZE: dec_in.shape={dec_in.shape}")
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         enc_out = enc_out.to(device)
         # x_int64 = x.type(torch.int64)
@@ -1743,20 +1744,24 @@ class TransformerDecoder(nn.Module):
         # print('Type of embedding:', x_int64.dtype, '\n')
 
         # Resulting: shape: [batch_size, max_len, embed_size]
-        x = dec_in.to(device)
-        x = x.type(torch.int64)
-        word_embedding = self.embedding(x)
+        dec_in = dec_in.to(device)
+        dec_in = dec_in.type(torch.int64)
+        word_embedding = self.embedding(dec_in)
         # final_embedding_gpu = final_embedding
         # final_embedding_gpu = final_embedding.to(device)
         # print(f"  final_embedding_gpu: {final_embedding_gpu.shape}, final_embedding_gpu dtype: {final_embedding_gpu.dtype}, final_embedding_gpu device: {final_embedding_gpu.get_device()}")
 
         # print('Content of final_embedding_gpu:', final_embedding_gpu)
         #
-        # max_len, batch_size = x.shape
-        # print(f"x.shape={x.shape}")
-        # print(f"max_len={max_len}, batch_size={batch_size}")
-
+        # x = x.squeeze(0)
+        # print(f"DECODER FORWARD BEFORE SQUEEZE: dec_in.shape={dec_in.shape}")
+        # dec_in = dec_in.squeeze(0)
+        # print(f"DECODER FORWARD AFTER SQUEEZE: dec_in.shape={dec_in.shape}")
         max_len, batch_size = dec_in.shape
+
+        # print(f"DECODER FORWARD:  max_len={max_len}, batch_size={batch_size}")
+
+        # max_len, batch_size = dec_in.shape
         # print(f"dec_in.shape [sequence length, batch_size]={dec_in.shape}")
         # print(f"max_len={max_len}, batch_size={batch_size}")
 
@@ -1773,7 +1778,7 @@ class TransformerDecoder(nn.Module):
         # print(f"trg_mask.shape: {trg_mask.shape}")
         trg_mask = trg_mask.to(device)
 
-        # combination_of_posn_and_word_emb = word_embedding + self.position_embedding.expand_as(word_embedding)
+        combination_of_posn_and_word_emb = word_embedding + self.position_embedding.expand_as(word_embedding)
         # # combination_of_posn_and_word_emb = torch.cat([word_embedding, self.positional_embedding], dim=0)
         # # combination_of_posn_and_word_emb = word_embedding + self.positional_embedding
         # # print(f"combination_of_posn_and_word_emb.shape: {combination_of_posn_and_word_emb.shape}")
@@ -1782,14 +1787,14 @@ class TransformerDecoder(nn.Module):
         #
         # tgt_input = tgt_input.to(device)
 
-        # x_with_posn_embedding_dropout = self.dropout_layer(x_with_posn_embedding)
+        x_with_posn_embedding_dropout = self.dropout_layer(combination_of_posn_and_word_emb)
+        x_with_posn_embedding_dropout = x_with_posn_embedding_dropout.to(device)
         # print(f"x_with_posn_embedding_dropout.shape: {x_with_posn_embedding_dropout.shape}")
 
-        x = self.dropout_layer(word_embedding + self.position_embedding.expand_as(word_embedding))
-        x = x.to(device)
+
 
         # transformer_output = self.transformer_decoder(tgt=tgt_input,memory=enc_out, tgt_mask = trg_mask)
-        transformer_output = self.transformer_decoder(tgt=x,memory=enc_out, tgt_mask = trg_mask)
+        transformer_output = self.transformer_decoder(tgt=x_with_posn_embedding_dropout,memory=enc_out, tgt_mask = trg_mask)
 
         # print(f"transformer_output.shape [sequence length, batch_size, trg_vocab_size]: {transformer_output.shape}")
 
@@ -1962,16 +1967,16 @@ if __name__ == '__main__':
     # HYPERPARAMETERS - feel free to change
     LEARNING_RATE = 0.001
     DIM_FEEDFORWARD=512
-    N_EPOCHS=20
-    N_HEADS=2
-    N_LAYERS=2
+    N_EPOCHS=50
+    N_HEADS=4
+    N_LAYERS=4
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    transformer_encoder = TransformerEncoder(src_vocab, EMBEDDING_DIM, N_HEADS, 
+    transformer_encoder = TransformerEncoder(src_vocab, EMBEDDING_DIM, N_HEADS,
                                  N_LAYERS,DIM_FEEDFORWARD,
                                  max_length_src, device).to(device)
-    transformer_decoder = TransformerDecoder(trg_vocab, EMBEDDING_DIM, N_HEADS, 
+    transformer_decoder = TransformerDecoder(trg_vocab, EMBEDDING_DIM, N_HEADS,
                               N_LAYERS,DIM_FEEDFORWARD,
                               max_length_trg, device).to(device)
 
@@ -2036,6 +2041,7 @@ def decode_transformer_model(encoder, decoder, src, max_decode_len, device):
 
     # We start the decoding with the start token for each example
     dec_input = torch.tensor([[trg_vocab.word2idx['<start>']]] * batch_size).transpose(0,1)
+
     # print(' OUTSIDE FOR LOOP  Shape of dec_input at start dec_in: [sequence length, batch_size]:', dec_input.shape, '\n')
     # print(' OUTSIDE FOR LOOP  dec_input at start:', dec_input, '\n')
 
@@ -2054,65 +2060,157 @@ def decode_transformer_model(encoder, decoder, src, max_decode_len, device):
 
     for t in range(1, max_decode_len):
 
+        # dec_input = curr_output[:, :t].transpose(0,1)
+
+
         # print(f"INSIDE FOR LOOP T is: {t}")
         if t==1:
-            dec_input = curr_output[:, 0]
-            dec_input = dec_input.unsqueeze(0)
-            # print(f"dec_input when t={t}: {dec_input}, dec_input.shape={dec_input.shape}")
+            # dec_input = curr_output[:, 0]
+            # dec_input = dec_input.unsqueeze(0)
+
+            # dec_input = curr_output[:, :t]
+            dec_input = curr_output[ : , :t]
+            dec_input = dec_input.type(torch.int64)
+            dec_input = dec_input.permute(1,0)
+
+            # print(f"dec_input when Inference t={t}: {dec_input}, dec_input.shape={dec_input.shape}")
         elif t>1:
             # dec_input = curr_output[ : , -1]  #try -1
-            dec_input = new_dec_input #try -1
-            # dec_input = curr_output[ : , t]  #try -1
-            dec_input = dec_input.unsqueeze(0)
+            # dec_input = new_dec_input #try -1
+            # print(f"new_dec_input Inference t={t}: {new_dec_input}")
+            # dec_input = curr_output[ : , :t]  #try -1
+            dec_input = curr_output[ : , :t]
+            dec_input = dec_input.type(torch.int64)
+            # print(f"dec_input Inference t={t} {dec_input} \n")
+            # print(f"dec_input.shape Inference t={t} {dec_input.shape} \n")
+
+            # dec_input = dec_input.unsqueeze(0)
+
+            dec_input = dec_input.permute(1,0)
+            # print(f"dec_input Inference t={t} after permute{dec_input} \n")
+            # print(f"dec_input.shape Inference t={t} after permute {dec_input.shape} \n")
+
             # dec_input = curr_output[ : , -1]  #try -1
             # x_int = (dec_input[:, -1]).to(device)
             # print(f"dec_input when t={t}: {dec_input}, dec_input.shape dec_in: [sequence length, batch_size]={dec_input.shape}")
             # dec_input = curr_output.view(batch_size,1).to(device)
 
 
-
-        # dec_input = dec_input.unsqueeze(0)
-        # print('dec_input after unsqueeze :', dec_input, '\n')
-        # print('Shape of dec_input after unsqueeze  :', dec_input.shape, '\n')
-
         # dec_in, enc_out
-        decoder_output_unnormalized_pred_probs = decoder(dec_in=dec_input, enc_out=encoder_output)
+        decoder_output_unnormalized_pred_probs = decoder.forward(dec_in=dec_input, enc_out=encoder_output)
         decoder_output = decoder_output_unnormalized_pred_probs.to(device)
         # print('BEFORE SQUEEZE decoder_output  decoder_output_unnormalized_pred_probs [batch_size, vocab_size]:', decoder_output)
         # print('BEFORE SQUEEZE Shape of decoder_output  (Unnormalized) output distribution [batch_size, vocab_size]:', decoder_output.shape)
 
-        decoder_output = decoder_output.squeeze(0)
+
+        ################################################################################################
+        decoder_output_squeezed = decoder_output.squeeze(0) ##squeeze or argmax
         # print('AFTER SQUEEZE decoder_output  decoder_output_unnormalized_pred_probs [batch_size, vocab_size]:', decoder_output)
-        # print('AFTER SQUEEZE Shape of decoder_output  (Unnormalized) output distribution [batch_size, vocab_size]:', decoder_output.shape)
-
-        # print('Shape of curr_predictions : [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
-        # curr_predictions[:, t, :] = decoder_output[:,t]
-        curr_predictions[:, t, :] = decoder_output
+        # print('AFTER SQUEEZE Shape of decoder_output_squeezed  (Unnormalized) output distribution [batch_size, vocab_size]:', decoder_output_squeezed.shape)
 
 
+        # if t==1:
+        #     # print('Shape of curr_predictions t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        #     # curr_predictions[:, t, :] = decoder_output_squeezed
+        #     # curr_predictions[:, t, :] = decoder_output[:, t, :]
+        #     curr_predictions[:, t, :] = decoder_output[-1, :, :]
+        #
+        #     # argmax_of_decoder_output = torch.argmax(decoder_output[-1, :, :], dim = 1)
+        #     # print('argmax_of_decoder_output:', argmax_of_decoder_output)
+        #     # # print('argmax_of_decoder_output: torch.argmax(decoder_output[-1, :, :], dim = 1):', argmax_of_decoder_output, '\n')
+        #     # print('SHAPE argmax_of_decoder_output: torch.argmax(decoder_output[-1, :, :], dim = 1):', argmax_of_decoder_output.shape, '\n')
+        #     #
+        #     # argmax_of_decoder_output_unsquuezed = argmax_of_decoder_output.unsqueeze(1)
+        #     # # print('argmax_of_decoder_output_unsquuezed:', argmax_of_decoder_output_unsquuezed)
+        #     # print('argmax_of_decoder_output_unsquuezed SHAPE:', argmax_of_decoder_output_unsquuezed.shape)
+        #     #
+        #     # # print('Shape of curr_predictions t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        # elif t>1:
+        #     # argmax_of_decoder_output = (torch.argmax(decoder_output, dim=0)).to(device)
+        #
+        #
+        #
+        #
+        #     # print('Shape of argmax_of_decoder_output t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', argmax_of_decoder_output.shape, '\n')
+        #     # print('Shape of curr_predictions t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        #     # curr_predictions[:, t,:] = argmax_of_decoder_output
+        #     curr_predictions[:, t,:] = decoder_output[-1, :, :]
+        #
+        #     # argmax_of_decoder_output = torch.argmax(decoder_output[-1, :, :], dim = 1)
+        #     # print('argmax_of_decoder_output:', argmax_of_decoder_output)
+        #     # # print('argmax_of_decoder_output: torch.argmax(decoder_output[-1, :, :], dim = 1):', argmax_of_decoder_output, '\n')
+        #     # print('SHAPE argmax_of_decoder_output: torch.argmax(decoder_output[-1, :, :], dim = 1):', argmax_of_decoder_output.shape, '\n')
+        #     #
+        #     # argmax_of_decoder_output_unsquuezed = argmax_of_decoder_output.unsqueeze(1)
+        #     # # print('argmax_of_decoder_output_unsquuezed:', argmax_of_decoder_output_unsquuezed)
+        #     # print('argmax_of_decoder_output_unsquuezed SHAPE:', argmax_of_decoder_output_unsquuezed.shape)
+        #     #
+        #     # # print('Shape of curr_predictions t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        #
 
 
-        new_dec_input = (torch.argmax(decoder_output, dim=1)).to(device)
+
+
+
+
+
+
+        #############################################################################################################
+
+
+        # new_dec_input = (torch.argmax(decoder_output, dim=2)).to(device)
         # print('new_dec_input:', new_dec_input, '\n')
         # print('Shape of new_dec_input:', new_dec_input.shape, '\n')
-
-        # new_dec_input_unsqueezed = (torch.argmax(fc_out, dim=1).unsqueeze(1)).to(device)
-        # print('Shape of new_dec_input_unsqueezed:', new_dec_input_unsqueezed.shape, '\n')
-
-        # print('Shape of dec_input before concatenation:', dec_input.shape, '\n')
-        # dec_input = (torch.cat([dec_input, new_dec_input_unsqueezed], dim=1)).to(device)
-        # print('Shape of dec_input after concatenation:', dec_input.shape, '\n')
-        # print(f"dec_input: {dec_input}")
-
-        # dec_input.append(new_dec_input)
-        # dec_input = ((torch.argmax(fc_out, dim=1)).unsqueeze(1)).to(device)
-        # print('new_dec_input:', new_dec_input)
-
-
-        # curr_output[:, t] = new_dec_input.squeeze(0)
-        curr_output[:, t] = new_dec_input
+        #
+        #
+        # # curr_output[:, t] = new_dec_input.squeeze(0)
+        # new_dec_input_permuted = new_dec_input.permute(1,0)
+        # print('new_dec_input_permuted:', new_dec_input_permuted)
+        # print('Shape of new_dec_input_permuted::', new_dec_input_permuted.shape, '\n')
+        #
+        # curr_output[:, t] = new_dec_input_permuted[:,-1]
         # print('curr_output:', curr_output)
         # print('Shape of curr_output: [batch_size, max_decode_len]:', curr_output.shape, '\n')
+
+
+
+
+        #  index_of_current_timestep = decoder_output[-1, :, :]
+        # # print('current_timestep:', index_of_current_timestep)
+        # print('Shape of current_timestep: :', index_of_current_timestep.shape, '\n')
+        #
+        # curr_predictions[:, t, :] = index_of_current_timestep
+        # # print('curr_predictions:', curr_predictions)
+        # print('Shape of curr_predictions: :', curr_predictions.shape, '\n')
+
+
+
+
+        # argmax_of_decoder_output = (torch.argmax(decoder_output, dim=0)).to(device)
+
+        # print('Shape of argmax_of_decoder_output t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', argmax_of_decoder_output.shape, '\n')
+        # print('Shape of curr_predictions t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        # curr_predictions[:, t,:] = argmax_of_decoder_output
+        curr_predictions[:, t,:] = decoder_output[-1, :, :]
+
+        argmax_of_decoder_output_values = torch.max(decoder_output[-1, :, :], dim = 1).values
+        argmax_of_decoder_output_indices = torch.max(decoder_output[-1, :, :], dim = 1).indices
+
+        # print('argmax_of_decoder_output_values:', argmax_of_decoder_output_values)
+        # print('argmax_of_decoder_output_indices:', argmax_of_decoder_output_indices)
+
+        # print('argmax_of_decoder_output: torch.argmax(decoder_output[-1, :, :], dim = 1):', argmax_of_decoder_output, '\n')
+        # print('SHAPE argmax_of_decoder_output_indices: torch.argmax(decoder_output[-1, :, :], dim = 1):', argmax_of_decoder_output_indices.shape, '\n')
+
+        argmax_of_decoder_output_unsquuezed = argmax_of_decoder_output_indices.unsqueeze(-1)
+        # print('argmax_of_decoder_output_unsquuezed:', argmax_of_decoder_output_unsquuezed)
+        # print('argmax_of_decoder_output_unsquuezed SHAPE:', argmax_of_decoder_output_unsquuezed.shape)
+
+        # print('Shape of curr_predictions t:',t,': [batch_size, max_decode_len, trg_vocab_size]:', curr_predictions.shape, '\n')
+        curr_output[:,t] = (argmax_of_decoder_output_unsquuezed).permute(1,0)
+        # print('curr_output:', curr_output)
+        # print('Shape of curr_output: :', curr_output.shape, '\n')
+
 
     #
     return curr_output, curr_predictions, enc_output
@@ -2226,7 +2324,7 @@ if __name__ == '__main__':
 import pickle
 
 
-# In[44]:
+# In[45]:
 
 
 ### DO NOT EDIT ###
@@ -2247,6 +2345,18 @@ if __name__=='__main__':
         # torch.save(transformer_decoder, 'drive/My Drive/transformer_decoder.pt')
         torch.save(transformer_encoder, 'saved_models/transformer_encoder.pt')
         torch.save(transformer_decoder, 'saved_models/transformer_decoder.pt')
+
+
+# In[44]:
+
+
+
+
+
+# In[44]:
+
+
+
 
 
 # In[44]:
